@@ -75,7 +75,28 @@ public class CreateTemplate {
                 }
                 rownum++;
             }
-            
+
+            //设置表头
+            Element thead = root.getChild("thead");
+            trs = thead.getChildren("tr");
+            for(int i=0; i<trs.size(); i++){
+                Element tr = trs.get(i);
+                HSSFRow row = sheet.createRow(rownum);
+                List<Element> ths = tr.getChildren("th");
+                for(column=0; column<ths.size(); column++){
+                    Element th = ths.get(column);
+                    Attribute valueArr = th.getAttribute("value");
+                    HSSFCell cell = row.createCell(column);
+                    if(valueArr != null){
+                        String value = valueArr.getValue();
+                        cell.setCellValue(value);
+                    }
+                }
+
+                rownum ++;
+            }
+
+            //设置数据区域样式
 
         }catch (Exception e){
             e.printStackTrace();
