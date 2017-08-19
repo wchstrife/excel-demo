@@ -1,11 +1,15 @@
+import com.sun.deploy.util.StringUtils;
+import org.apache.commons.io.*;
 import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
-import org.jdom.Attribute;
-import org.jdom.Document;
-import org.jdom.Element;
-import org.jdom.input.SAXBuilder;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.jdom2.Attribute;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.input.SAXBuilder;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.List;
 
 /**
@@ -97,10 +101,71 @@ public class CreateTemplate {
             }
 
             //设置数据区域样式
+            Element tbody = root.getChild("tbody");
+            Element tr = tbody.getChild("tr");
+            int repeat = tr.getAttribute("repeat").getIntValue();
+
+            List<Element> tds = tr.getChildren("td");
+            for (int i=0; i<repeat; i++){
+                HSSFRow row = sheet.createRow(rownum);
+                for(column=0 ; column<tds.size(); column++){
+                    Element td = tds.get(column);
+                    HSSFCell cell = row.createCell(column);
+                    setType(wb, cell, td);
+                }
+
+                rownum ++;
+            }
+
+            //生成Excel导入模板
+            File tempFile = new File("D:/work/excel-demo/" + templateName + ".xls");
+            tempFile.delete();
+            tempFile.createNewFile();
+            FileOutputStream stream = FileUtils.openOutputStream(tempFile);
+            wb.write(stream);
+            stream.close();
 
         }catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+	/**
+	 * 设置单元格样式
+     * @param wb
+     * @param cell
+     * @param td
+     */
+    private static void setType(HSSFWorkbook wb, HSSFCell cell, Element td){
+        Attribute typeArr = td.getAttribute("type");
+        String type = typeArr.getValue();
+        HSSFDataFormat format = wb.createDataFormat();
+        HSSFCellStyle cellStyle = wb.createCellStyle();
+        //判断类型
+        if("numeric".equalsIgnoreCase(type)){
+            cell.setCellType(HSSFCell.CELL_TYPE_NUMERIC);
+            Attribute formatAttr = td.getAttribute("format");
+            String formatValue = formatAttr.getValue();
+            formatValue = formatValue != null ? formatValue : "#,##0.00";
+            cellStyle.setDataFormat(format.getFormat(formatValue));
+        }else if("string".equalsIgnoreCase(type)){
+            cell.setCellValue("");
+            cell.setCellType(HSSFCell.CELL_TYPE_STRING);
+            cellStyle.setDataFormat(format.getFormat("@"));
+        }else if("date".equalsIgnoreCase(type)){
+            cell.setCellType(HSSFCell.CELL_TYPE_NUMERIC);
+            cellStyle.setDataFormat(format.getFormat("yyyy-m-d"));
+        }else if("enum".equalsIgnoreCase(type)){
+            CellRangeAddressList regions = new CellRangeAddressList(cell.getRowIndex(), cell.getRowIndex(), cell.getColumnIndex(), cell.getColumnIndex());
+            Attribute enumAttr = td.getAttribute("format");
+            String enumValue = enumAttr.getValue();
+            //加载下拉列表内容
+            DVConstraint constraint = DVConstraint.createExplicitListConstraint(enumValue.split(","));
+            //数据有效性对象
+            HSSFDataValidation dataValidation = new HSSFDataValidation(regions, constraint);
+            wb.getSheetAt(0).addValidationData(dataValidation);
+        }
+        cell.setCellStyle(cellStyle);
     }
 
     /**
